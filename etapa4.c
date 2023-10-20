@@ -22,7 +22,7 @@
 #include <mpi.h>     
 
 #define THREAD_NUM 9    // Tamanho do pool de threads
-#define BUFFER_SIZE 256 // Númermo máximo de tarefas enfileiradas
+#define BUFFER_SIZE 12 // Númermo máximo de tarefas enfileiradas
 
 
 typedef struct {
@@ -38,21 +38,21 @@ typedef struct {
 
 typedef struct {
     Clock clock;
-    Clock in[3];
-    Clock out[3];
+    Clock in[BUFFER_SIZE];
+    Clock out[BUFFER_SIZE];
 } Snapshot;
 
 pthread_mutex_t outMutex;
 pthread_cond_t outCondEmpty;
 pthread_cond_t outCondFull;
 int outClockCount = 0;
-Clock outClockQueue[3];
+Clock outClockQueue[BUFFER_SIZE];
 
 pthread_mutex_t inMutex;
 pthread_cond_t inCondEmpty;
 pthread_cond_t inCondFull;
 int inClockCount = 0;
-Clock inClockQueue[3];
+Clock inClockQueue[BUFFER_SIZE];
 
 
 void CompareClock(Clock* clock, Clock* clock1){
@@ -94,7 +94,7 @@ Clock GetClock(pthread_mutex_t *mutex, pthread_cond_t *condEmpty, pthread_cond_t
 void PutClock(pthread_mutex_t *mutex, pthread_cond_t *condEmpty, pthread_cond_t *condFull, int *clockCount, Clock clock, Clock *clockQueue) {
     pthread_mutex_lock(mutex);
 
-    while (*clockCount == 3) {
+    while (*clockCount == BUFFER_SIZE) {
         pthread_cond_wait(condFull, mutex);
     }
     
@@ -112,7 +112,7 @@ void InitiateSnapshot(Process* process) {
     //Inicia o Snapshot
     Snapshot snapshot;
     snapshot.clock = process->clock;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < BUFFER_SIZE; i++) {
         snapshot.in[i] = inClockQueue[i];
         snapshot.out[i] = outClockQueue[i];
     }
@@ -239,7 +239,7 @@ void *MainThread(void *args) {
             
             // Send
             case 1:
-                if(outClockCount != 3){
+                if(outClockCount != BUFFER_SIZE){
                     process->clock.flag = ChooseRandomRecipient(pid, 3);
                     SendControl(pid, &outMutex, &outCondEmpty, &outCondFull, &outClockCount, &(process->clock), outClockQueue, process);
                 }
